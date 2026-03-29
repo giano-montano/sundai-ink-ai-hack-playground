@@ -21,6 +21,8 @@ import './sudoku';
 import './tango';
 import './tictactoe';
 import './andgate';
+import './orgate';
+import './notgate';
 import './logicinput';
 
 // Re-export registry for convenience

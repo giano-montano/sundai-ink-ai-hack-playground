@@ -1,5 +1,7 @@
 import type { Element } from '../../types';
 import type { AndGateElement } from '../andgate/types';
+import type { OrGateElement } from '../orgate/types';
+import type { NotGateElement } from '../notgate/types';
 import type { LogicInputElement } from '../logicinput/types';
 import { applyMatrix, boundingBoxContainsPoint, expandBoundingBox } from '../../types/primitives';
 
@@ -7,7 +9,7 @@ import { applyMatrix, boundingBoxContainsPoint, expandBoundingBox } from '../../
  * Resuelve la lógica de todos los elementos de circuito en la nota.
  */
 export function solveLogic(elements: Element[]): Element[] {
-  const gates = elements.filter(el => el.type === 'andgate') as AndGateElement[];
+  const gates = elements.filter(el => ['andgate', 'orgate', 'notgate'].includes(el.type)) as (AndGateElement | OrGateElement | NotGateElement)[];
   const inputs = elements.filter(el => el.type === 'logicinput') as LogicInputElement[];
 
   if (gates.length === 0) return elements;
@@ -19,21 +21,17 @@ export function solveLogic(elements: Element[]): Element[] {
       if (input.outputOf) {
         const parentGate = gates.find(g => g.id === input.outputOf);
         if (parentGate) {
-          // Reposicionar el output pegado al pin derecho del padre
-          const gateWidth = parentGate.bounds.right - parentGate.bounds.left;
           const gateHeight = parentGate.bounds.bottom - parentGate.bounds.top;
           const outWidth = input.bounds.right - input.bounds.left;
           const outHeight = input.bounds.bottom - input.bounds.top;
           
-          // El outputOf debe seguir al padre, manteniendo su offset relativo
-          // Para simplificar, lo pegamos siempre a 5px del borde derecho central
           const outputPadding = 5;
           const newLeft = parentGate.bounds.right + outputPadding;
           const newTop = parentGate.bounds.top + gateHeight / 2 - outHeight / 2;
 
           return {
             ...input,
-            transform: parentGate.transform, // Hereda el transform del padre
+            transform: parentGate.transform,
             bounds: {
               left: newLeft,
               top: newTop,
@@ -52,79 +50,91 @@ export function solveLogic(elements: Element[]): Element[] {
     const { left, top, bottom } = gate.bounds;
     const height = bottom - top;
 
-    // Posición mundial de los pines de entrada
-    const p1_world = applyMatrix(gate.transform, { x: left, y: top + height * 0.3 });
-    const p2_world = applyMatrix(gate.transform, { x: left, y: top + height * 0.7 });
-
     let val1: 0 | 1 | null = null;
     let val2: 0 | 1 | null = null;
+    let output: 0 | 1 = 0;
 
-    for (const input of inputs) {
-      // No podemos conectarnos a nuestro propio output (feedback loop simple prevenido)
-      if (input.outputOf === gate.id) continue;
+    // Diferenciar lógica por tipo de compuerta
+    if (gate.type === 'andgate' || gate.type === 'orgate') {
+      const p1_world = applyMatrix(gate.transform, { x: left, y: top + height * 0.3 });
+      const p2_world = applyMatrix(gate.transform, { x: left, y: top + height * 0.7 });
 
-      // Expandimos la caja de colisión del input para que sea más fácil conectar (margen de 15px)
-      const collisionBounds = expandBoundingBox(input.bounds, 15);
-      
-      // Centro del input en el mundo
-      const inputCenter_local = {
-        x: (input.bounds.left + input.bounds.right) / 2,
-        y: (input.bounds.top + input.bounds.bottom) / 2
-      };
-      const inputCenter_world = applyMatrix(input.transform, inputCenter_local);
+      for (const input of inputs) {
+        if (input.outputOf === gate.id) continue;
+        const collisionBounds = expandBoundingBox(input.bounds, 15);
+        const inputCenter_world = applyMatrix(input.transform, {
+          x: (input.bounds.left + input.bounds.right) / 2,
+          y: (input.bounds.top + input.bounds.bottom) / 2
+        });
 
-      // Verificamos si el pin está DENTRO de la caja del input expandida
-      // O si el centro del input está muy cerca del pin
-      const isConnected1 = boundingBoxContainsPoint(collisionBounds, p1_world);
-      const isConnected2 = boundingBoxContainsPoint(collisionBounds, p2_world);
-      
-      const dist1 = Math.hypot(inputCenter_world.x - p1_world.x, inputCenter_world.y - p1_world.y);
-      const dist2 = Math.hypot(inputCenter_world.x - p2_world.x, inputCenter_world.y - p2_world.y);
+        if (boundingBoxContainsPoint(collisionBounds, p1_world) || Math.hypot(inputCenter_world.x - p1_world.x, inputCenter_world.y - p1_world.y) < 35) {
+          val1 = input.value;
+        }
+        if (boundingBoxContainsPoint(collisionBounds, p2_world) || Math.hypot(inputCenter_world.x - p2_world.x, inputCenter_world.y - p2_world.y) < 35) {
+          val2 = input.value;
+        }
+      }
 
-      if (isConnected1 || dist1 < 35) val1 = input.value;
-      if (isConnected2 || dist2 < 35) val2 = input.value;
+      if (gate.type === 'andgate') {
+        output = (val1 === 1 && val2 === 1) ? 1 : 0;
+      } else {
+        output = (val1 === 1 || val2 === 1) ? 1 : 0;
+      }
+    } else if (gate.type === 'notgate') {
+      // NOT gate solo tiene 1 entrada central
+      const p_world = applyMatrix(gate.transform, { x: left, y: top + height / 2 });
+      for (const input of inputs) {
+        if (input.outputOf === gate.id) continue;
+        const collisionBounds = expandBoundingBox(input.bounds, 15);
+        const inputCenter_world = applyMatrix(input.transform, {
+          x: (input.bounds.left + input.bounds.right) / 2,
+          y: (input.bounds.top + input.bounds.bottom) / 2
+        });
+
+        if (boundingBoxContainsPoint(collisionBounds, p_world) || Math.hypot(inputCenter_world.x - p_world.x, inputCenter_world.y - p_world.y) < 35) {
+          val1 = input.value;
+        }
+      }
+      output = val1 === 1 ? 0 : 1; // NOT 1 = 0, NOT 0/null = 1
     }
 
-    const output = (val1 === 1 && val2 === 1) ? 1 : 0;
-    return { id: gate.id, val1, val2, output };
+    return { id: gate.id, type: gate.type, val1, val2, output };
   });
 
   // Fase 3: Propagar el output a los seguidores
   return syncElements.map(el => {
-    if (el.type === 'andgate') {
+    if (['andgate', 'orgate', 'notgate'].includes(el.type)) {
       const update = gateUpdates.find(u => u.id === el.id);
-      return update ? { ...el, input1: update.val1, input2: update.val2, output: update.output } : el;
+      if (update) {
+        if (el.type === 'notgate') {
+          return { ...el, input: update.val1, output: update.output } as NotGateElement;
+        } else {
+          return { ...el, input1: update.val1, input2: update.val2, output: update.output };
+        }
+      }
     }
 
     if (el.type === 'logicinput') {
       const input = el as LogicInputElement;
-      
-      // Si es un output seguidor, actualizamos su valor basado en su padre
       if (input.outputOf) {
         const gateUpdate = gateUpdates.find(u => u.id === input.outputOf);
-        if (gateUpdate) {
-          return { ...input, value: gateUpdate.output as 0 | 1 };
-        }
+        if (gateUpdate) return { ...input, value: gateUpdate.output as 0 | 1 };
       }
 
-      // Para inputs sueltos, también permitimos que se conecten manualmente (Legacy check)
+      // Check legacy/manual connections
       const inputCenter_world = applyMatrix(input.transform, {
         x: (input.bounds.left + input.bounds.right) / 2,
         y: (input.bounds.top + input.bounds.bottom) / 2
       });
 
       for (const gate of gates) {
-        const gateUpdate = gateUpdates.find(u => u.id === gate.id);
-        if (!gateUpdate) continue;
-
         const outPin_world = applyMatrix(gate.transform, {
           x: gate.bounds.right,
           y: (gate.bounds.top + gate.bounds.bottom) / 2
         });
-
-        const distOut = Math.hypot(inputCenter_world.x - outPin_world.x, inputCenter_world.y - outPin_world.y);
-        if (distOut < 35) {
-          return { ...input, value: gateUpdate.output as 0 | 1 };
+        if (Math.hypot(inputCenter_world.x - outPin_world.x, inputCenter_world.y - outPin_world.y) < 35) {
+          const update = gateUpdates.find(u => u.id === gate.id);
+          if (update) return { ...input, value: update.output as 0 | 1 };
         }
       }
     }
