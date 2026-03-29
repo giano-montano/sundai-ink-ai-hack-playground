@@ -1,29 +1,28 @@
 import type { Stroke } from '../../types';
-import type { AndGateElement } from './types';
-import { generateId, IDENTITY_MATRIX } from '../../types/primitives';
-import type { CreationContext, CreationResult } from '../registry/ElementPlugin';
 import type { HandwritingRecognitionResult } from '../../recognition/RecognitionService';
+import type { CreationContext, CreationResult } from '../registry/ElementPlugin';
+import { getStrokesBoundingBox } from '../registry/ElementRegistry';
+import { detectAndGateBodyBounds } from './detection';
+import { createAndGateElementFromBodyBounds } from './types';
 
 export function canCreate(strokes: Stroke[]): boolean {
-  return strokes.length >= 1 && strokes.length <= 2;
+  if (strokes.length === 0 || strokes.length > 4) return false;
+  const bounds = getStrokesBoundingBox(strokes);
+  if (!bounds) return false;
+  return bounds.right - bounds.left >= 36 && bounds.bottom - bounds.top >= 36;
 }
 
 export async function createFromInk(
   strokes: Stroke[],
-  context: CreationContext,
-  recognitionResult?: HandwritingRecognitionResult
+  _context: CreationContext,
+  _recognitionResult?: HandwritingRecognitionResult,
 ): Promise<CreationResult | null> {
-  const element: CheckboxElement = {
-    type: 'checkbox',
-    id: generateId(),
-    transform: IDENTITY_MATRIX,
-    checked: false,
-    sourceStrokes: strokes,
-  };
+  const bodyBounds = detectAndGateBodyBounds(strokes);
+  if (!bodyBounds) return null;
 
   return {
-    elements: [element],
+    elements: [createAndGateElementFromBodyBounds(bodyBounds)],
     consumedStrokes: strokes,
-    confidence: 0.85,
+    confidence: 0.86,
   };
 }

@@ -83,6 +83,11 @@ export interface InteractionResult {
   element: Element;
   consumed: boolean;
   strokesConsumed: Stroke[];
+  additionalUpdatedElements?: Element[];
+}
+
+export interface InteractionContext {
+  elements: Element[];
 }
 
 // Render options passed to plugins
@@ -130,7 +135,8 @@ export interface ElementPlugin<T extends Element = Element> {
   acceptInk?(
     element: T,
     strokes: Stroke[],
-    recognitionResult?: HandwritingRecognitionResult
+    recognitionResult?: HandwritingRecognitionResult,
+    context?: InteractionContext,
   ): Promise<InteractionResult>;
 
   // === Handle-based Interaction (NEW unified API) ===

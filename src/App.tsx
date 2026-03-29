@@ -7,6 +7,7 @@ import type { NoteElements, Stroke, Element } from './types';
 import { createEmptyNote, supportsBackgroundColor, getElementStrokeColor, getElementBackgroundColor, setElementStrokeColor, setElementBackgroundColor } from './types';
 import { generateId, IDENTITY_MATRIX } from './types/primitives';
 import { createStrokeElement } from './elements/stroke/types';
+import { normalizeAndGateElement } from './elements/andgate/types';
 import type { ShapeElement } from './elements/shape/types';
 import { createSketchableImageElement } from './elements/sketchableimage/types';
 import { useUndoRedo, useUndoRedoKeyboard } from './state/useUndoRedo';
@@ -54,6 +55,20 @@ function removeConsumedStrokeElements(elements: Element[], consumedStrokes: Set<
   });
 }
 
+function applyInteractionUpdates(
+  elements: Element[],
+  elementId: string,
+  updatedElement: Element,
+  additionalUpdatedElements?: Element[],
+): Element[] {
+  const updates = new Map<string, Element>([[elementId, updatedElement]]);
+  for (const element of additionalUpdatedElements ?? []) {
+    updates.set(element.id, element);
+  }
+
+  return elements.map(element => updates.get(element.id) ?? element);
+}
+
 const STORAGE_KEY = 'ink-playground-note';
 const VIEWPORT_STORAGE_KEY = 'ink-playground-viewport';
 
@@ -62,7 +77,19 @@ function loadSavedNote(): NoteElements {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed && Array.isArray(parsed.elements)) return parsed as NoteElements;
+      if (parsed && Array.isArray(parsed.elements)) {
+        return {
+          elements: parsed.elements.flatMap((element: unknown) => {
+            if (!element || typeof element !== 'object') return [];
+            if ((element as { type?: unknown }).type !== 'andgate') {
+              return [element as Element];
+            }
+
+            const normalized = normalizeAndGateElement(element);
+            return normalized ? [normalized] : [];
+          }),
+        };
+      }
     }
   } catch { /* ignore */ }
   return { elements: [] };
@@ -421,8 +448,11 @@ function App() {
       // Update the element in place
       setCurrentNote({
         ...currentNoteRef.current,
-        elements: currentNoteRef.current.elements.map((el) =>
-          el.id === elementId ? result.element : el
+        elements: applyInteractionUpdates(
+          currentNoteRef.current.elements,
+          elementId,
+          result.element,
+          result.additionalUpdatedElements,
         ),
       });
       // Auto-select the element that consumed the strokes
@@ -696,8 +726,11 @@ function App() {
       }
       setCurrentNote({
         ...currentNoteRef.current,
-        elements: currentNoteRef.current.elements.map((el) =>
-          el.id === elementId ? result.element : el
+        elements: applyInteractionUpdates(
+          currentNoteRef.current.elements,
+          elementId,
+          result.element,
+          result.additionalUpdatedElements,
         ),
       });
       // Auto-select the element that consumed the stroke
