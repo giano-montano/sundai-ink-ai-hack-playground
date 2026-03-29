@@ -1,4 +1,4 @@
-import type { BoundingBox } from '../../types';
+import type { BoundingBox, Element } from '../../types';
 import type { RenderOptions } from '../registry/ElementPlugin';
 import type { OrGateElement } from './types';
 
@@ -19,6 +19,7 @@ export function render(
   const bodyWidth = totalWidth * 0.6;
   const bodyLeft = left + pinSpace;
   const bodyRight = bodyLeft + bodyWidth;
+  const centerY = top + totalHeight / 2;
   
   const isSelected = options?.strokeOptions?.isSelected;
 
@@ -34,37 +35,37 @@ export function render(
   ctx.beginPath();
   ctx.strokeStyle = color1;
   ctx.moveTo(left, inputY1);
-  ctx.lineTo(bodyLeft + 5, inputY1); // Entra un poco en la curva
+  ctx.lineTo(bodyLeft + totalWidth * 0.05, inputY1);
   ctx.stroke();
   
   ctx.beginPath();
   ctx.strokeStyle = color2;
   ctx.moveTo(left, inputY2);
-  ctx.lineTo(bodyLeft + 5, inputY2);
+  ctx.lineTo(bodyLeft + totalWidth * 0.05, inputY2);
   ctx.stroke();
 
-  // 2. Cuerpo (OR gate shape: curved back, curved front pointed)
+  // 2. Cuerpo Característico de la OR gate (Curvado)
   ctx.beginPath();
   ctx.strokeStyle = isSelected ? '#0078d4' : '#000000';
   
-  // Back curve (entrada)
+  // Back curve (entrada) - Curvada hacia adentro
   ctx.moveTo(bodyLeft, top);
-  ctx.quadraticCurveTo(bodyLeft + totalWidth * 0.15, top + totalHeight / 2, bodyLeft, bottom);
+  ctx.quadraticCurveTo(bodyLeft + bodyWidth * 0.3, centerY, bodyLeft, bottom);
   
   // Bottom curve (hacia el frente)
-  ctx.quadraticCurveTo(bodyLeft + bodyWidth * 0.5, bottom, bodyRight, top + totalHeight / 2);
+  ctx.quadraticCurveTo(bodyLeft + bodyWidth * 0.6, bottom, bodyRight, centerY);
   
   // Top curve (hacia el frente)
   ctx.moveTo(bodyLeft, top);
-  ctx.quadraticCurveTo(bodyLeft + bodyWidth * 0.5, top, bodyRight, top + totalHeight / 2);
+  ctx.quadraticCurveTo(bodyLeft + bodyWidth * 0.6, top, bodyRight, centerY);
+  
   ctx.stroke();
 
   // 3. Salida
-  const outputY = top + totalHeight / 2;
   ctx.beginPath();
   ctx.strokeStyle = colorOut;
-  ctx.moveTo(bodyRight, outputY);
-  ctx.lineTo(right, outputY);
+  ctx.moveTo(bodyRight, centerY);
+  ctx.lineTo(right, centerY);
   ctx.stroke();
 
   ctx.restore();

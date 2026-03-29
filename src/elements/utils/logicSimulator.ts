@@ -15,6 +15,7 @@ export function solveLogic(elements: Element[]): Element[] {
   if (gates.length === 0) return elements;
 
   // Fase 1: Sincronizar posición de los outputs "sticky"
+  // Esto asegura que el LogicInput generado por una compuerta siempre la siga.
   const syncElements = elements.map(el => {
     if (el.type === 'logicinput') {
       const input = el as LogicInputElement;
@@ -31,7 +32,7 @@ export function solveLogic(elements: Element[]): Element[] {
 
           return {
             ...input,
-            transform: parentGate.transform,
+            transform: parentGate.transform, // Sincroniza matriz de transformación
             bounds: {
               left: newLeft,
               top: newTop,
@@ -61,18 +62,30 @@ export function solveLogic(elements: Element[]): Element[] {
 
       for (const input of inputs) {
         if (input.outputOf === gate.id) continue;
-        const collisionBounds = expandBoundingBox(input.bounds, 15);
+        
+        // Calcular los bounds MUNDIALES del input para la colisión
+        const topLeft_world = applyMatrix(input.transform, { x: input.bounds.left, y: input.bounds.top });
+        const bottomRight_world = applyMatrix(input.transform, { x: input.bounds.right, y: input.bounds.bottom });
+        const worldBounds = {
+          left: Math.min(topLeft_world.x, bottomRight_world.x),
+          top: Math.min(topLeft_world.y, bottomRight_world.y),
+          right: Math.max(topLeft_world.x, bottomRight_world.x),
+          bottom: Math.max(topLeft_world.y, bottomRight_world.y)
+        };
+        const collisionBounds = expandBoundingBox(worldBounds, 30); // Más generoso (30px)
+
         const inputCenter_world = applyMatrix(input.transform, {
           x: (input.bounds.left + input.bounds.right) / 2,
           y: (input.bounds.top + input.bounds.bottom) / 2
         });
 
-        if (boundingBoxContainsPoint(collisionBounds, p1_world) || Math.hypot(inputCenter_world.x - p1_world.x, inputCenter_world.y - p1_world.y) < 35) {
-          val1 = input.value;
-        }
-        if (boundingBoxContainsPoint(collisionBounds, p2_world) || Math.hypot(inputCenter_world.x - p2_world.x, inputCenter_world.y - p2_world.y) < 35) {
-          val2 = input.value;
-        }
+        const isConnected1 = boundingBoxContainsPoint(collisionBounds, p1_world) || 
+                            Math.hypot(inputCenter_world.x - p1_world.x, inputCenter_world.y - p1_world.y) < 50;
+        const isConnected2 = boundingBoxContainsPoint(collisionBounds, p2_world) || 
+                            Math.hypot(inputCenter_world.x - p2_world.x, inputCenter_world.y - p2_world.y) < 50;
+
+        if (isConnected1) val1 = input.value;
+        if (isConnected2) val2 = input.value;
       }
 
       if (gate.type === 'andgate') {
@@ -81,21 +94,30 @@ export function solveLogic(elements: Element[]): Element[] {
         output = (val1 === 1 || val2 === 1) ? 1 : 0;
       }
     } else if (gate.type === 'notgate') {
-      // NOT gate solo tiene 1 entrada central
       const p_world = applyMatrix(gate.transform, { x: left, y: top + height / 2 });
       for (const input of inputs) {
         if (input.outputOf === gate.id) continue;
-        const collisionBounds = expandBoundingBox(input.bounds, 15);
+        
+        const topLeft_world = applyMatrix(input.transform, { x: input.bounds.left, y: input.bounds.top });
+        const bottomRight_world = applyMatrix(input.transform, { x: input.bounds.right, y: input.bounds.bottom });
+        const worldBounds = {
+          left: Math.min(topLeft_world.x, bottomRight_world.x),
+          top: Math.min(topLeft_world.y, bottomRight_world.y),
+          right: Math.max(topLeft_world.x, bottomRight_world.x),
+          bottom: Math.max(topLeft_world.y, bottomRight_world.y)
+        };
+        const collisionBounds = expandBoundingBox(worldBounds, 30);
+        
         const inputCenter_world = applyMatrix(input.transform, {
           x: (input.bounds.left + input.bounds.right) / 2,
           y: (input.bounds.top + input.bounds.bottom) / 2
         });
 
-        if (boundingBoxContainsPoint(collisionBounds, p_world) || Math.hypot(inputCenter_world.x - p_world.x, inputCenter_world.y - p_world.y) < 35) {
+        if (boundingBoxContainsPoint(collisionBounds, p_world) || Math.hypot(inputCenter_world.x - p_world.x, inputCenter_world.y - p_world.y) < 50) {
           val1 = input.value;
         }
       }
-      output = val1 === 1 ? 0 : 1; // NOT 1 = 0, NOT 0/null = 1
+      output = val1 === 1 ? 0 : 1; 
     }
 
     return { id: gate.id, type: gate.type, val1, val2, output };
@@ -132,7 +154,7 @@ export function solveLogic(elements: Element[]): Element[] {
           x: gate.bounds.right,
           y: (gate.bounds.top + gate.bounds.bottom) / 2
         });
-        if (Math.hypot(inputCenter_world.x - outPin_world.x, inputCenter_world.y - outPin_world.y) < 35) {
+        if (Math.hypot(inputCenter_world.x - outPin_world.x, inputCenter_world.y - outPin_world.y) < 50) {
           const update = gateUpdates.find(u => u.id === gate.id);
           if (update) return { ...input, value: update.output as 0 | 1 };
         }

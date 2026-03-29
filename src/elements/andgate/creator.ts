@@ -1,108 +1,92 @@
 import type { Stroke } from '../../types';
 import type { AndGateElement } from './types';
+import type { LogicInputElement } from '../logicinput/types';
 import { generateId, IDENTITY_MATRIX } from '../../types/primitives';
 import { getStrokesBoundingBox } from '../registry';
 import type { CreationContext, CreationResult } from '../registry/ElementPlugin';
+import type { HandwritingRecognitionResult } from '../../recognition/RecognitionService';
 
 export function canCreate(strokes: Stroke[]): boolean {
-  // Aceptamos entre 3 y 5 trazos (D + 2 entradas + 1 salida = 4 idealmente)
-  return strokes.length >= 3 && strokes.length <= 5;
+  // Cuerpo + 2 entradas + 1 salida = 4 idealmente
+  return strokes.length >= 3 && strokes.length <= 6;
 }
 
 export async function createFromInk(
   strokes: Stroke[],
-  _context: CreationContext
+  _context: CreationContext,
+  recognitionResult?: HandwritingRecognitionResult
 ): Promise<CreationResult | null> {
   const strokeData = strokes.map(s => {
     const b = getStrokesBoundingBox([s])!;
+    const area = (b.right - b.left) * (b.bottom - b.top);
+    
+    // Calcular área real del trazo (basado en puntos) para mayor precisión
+    const points = s.inputs.inputs;
+    let actualArea = 0;
+    if (points.length > 2) {
+      for (let i = 0; i < points.length; i++) {
+        const p1 = points[i];
+        const p2 = points[(i + 1) % points.length];
+        actualArea += (p1.x * p2.y) - (p2.x * p1.y);
+      }
+      actualArea = Math.abs(actualArea) / 2;
+    }
+
     return {
-      stroke: s,
       bounds: b,
-      area: (b.right - b.left) * (b.bottom - b.top),
       width: b.right - b.left,
       height: b.bottom - b.top,
       centerX: (b.left + b.right) / 2,
-      centerY: (b.top + b.bottom) / 2,
-      isHorizontal: (b.right - b.left) > (b.bottom - b.top) * 1.5
+      isHorizontal: (b.right - b.left) > (b.bottom - b.top) * 1.5,
+      area,
+      actualArea,
+      areaRatio: actualArea / (area || 1)
     };
   });
 
-  // 1. Identificar el cuerpo (el trazo con más área que no sea extremadamente horizontal)
-  const bodyCandidates = strokeData
-    .filter(s => s.width / s.height < 3.0) // No puede ser una línea muy larga
-    .sort((a, b) => b.area - a.area);
-
-  if (bodyCandidates.length === 0) return null;
-  const body = bodyCandidates[0];
+  const body = strokeData.sort((a, b) => b.area - a.area)[0];
   const others = strokeData.filter(s => s !== body);
 
-  // 2. Clasificar pines (deben ser mayormente horizontales)
-  const bodyCenterX = body.centerX;
-  const bodyWidth = body.width;
+  const inputs = others.filter(o => o.centerX < body.centerX && o.isHorizontal);
+  const outputs = others.filter(o => o.centerX > body.centerX && o.isHorizontal);
 
-  // Entradas: a la izquierda del centro del cuerpo, terminando cerca o dentro del borde izquierdo
-  const inputs = others.filter(o => 
-    o.centerX < bodyCenterX && 
-    o.bounds.right < bodyCenterX &&
-    o.isHorizontal
-  );
+  // AND requiere 2 entradas y 1 salida
+  if (inputs.length !== 2 || outputs.length !== 1) return null;
 
-  // Salidas: a la derecha del centro del cuerpo, empezando cerca o dentro del borde derecho
-  const outputs = others.filter(o => 
-    o.centerX > bodyCenterX && 
-    o.bounds.left > bodyCenterX - bodyWidth * 0.2 &&
-    o.isHorizontal
-  );
+  const text = recognitionResult?.rawText?.toLowerCase() || '';
+  const isAndText = text.includes('and');
+  
+  // Si el cuerpo es muy "lleno" (como una D), es una AND.
+  // Un triángulo suele tener un ratio de área menor (cercano a 0.5)
+  const isDShape = body.areaRatio > 0.6;
 
-  // 3. Validación estricta: 2 entradas y 1 salida
-  // Si hay 4 trazos totales, esperamos 1 cuerpo, 2 entradas, 1 salida.
-  const hasTwoInputs = inputs.length === 2;
-  const hasOneOutput = outputs.length === 1;
-
-  if (!hasTwoInputs || !hasOneOutput) return null;
-
-  // 4. Verificación de coherencia espacial
   const totalBounds = getStrokesBoundingBox(strokes)!;
-  const totalWidth = totalBounds.right - totalBounds.left;
-  
-  // Si el conjunto es demasiado disperso, no es una compuerta
-  if (totalWidth > bodyWidth * 5) return null;
-
   const gateId = generateId();
-  const outputId = generateId();
-
-  const gate: AndGateElement = {
-    type: 'andgate',
-    id: gateId,
-    transform: IDENTITY_MATRIX,
-    bounds: totalBounds,
-    sourceStrokes: strokes,
-  };
-
-  // Crear un LogicInput automático en la salida (lado derecho)
-  const outputWidth = 30;
-  const outputHeight = 30;
-  const outputPadding = 5;
-  
-  const outputBounds: BoundingBox = {
-    left: totalBounds.right + outputPadding,
-    top: totalBounds.top + (totalBounds.bottom - totalBounds.top) / 2 - outputHeight / 2,
-    right: totalBounds.right + outputPadding + outputWidth,
-    bottom: totalBounds.top + (totalBounds.bottom - totalBounds.top) / 2 + outputHeight / 2,
-  };
-
-  const outputInput: LogicInputElement = {
-    type: 'logicinput',
-    id: outputId,
-    transform: IDENTITY_MATRIX,
-    value: 0,
-    bounds: outputBounds,
-    outputOf: gateId, // This makes it 'sticky' in the simulator
-  };
 
   return {
-    elements: [gate, outputInput],
+    elements: [
+      {
+        type: 'andgate',
+        id: gateId,
+        transform: IDENTITY_MATRIX,
+        bounds: totalBounds,
+        sourceStrokes: strokes,
+      },
+      {
+        type: 'logicinput',
+        id: generateId(),
+        transform: IDENTITY_MATRIX,
+        value: 0,
+        bounds: {
+          left: totalBounds.right + 5,
+          top: totalBounds.top + (totalBounds.bottom - totalBounds.top) / 2 - 15,
+          right: totalBounds.right + 35,
+          bottom: totalBounds.top + (totalBounds.bottom - totalBounds.top) / 2 + 15,
+        },
+        outputOf: gateId,
+      }
+    ],
     consumedStrokes: strokes,
-    confidence: 0.9,
+    confidence: isAndText ? 0.95 : (isDShape ? 0.85 : 0.4),
   };
 }
