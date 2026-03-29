@@ -68,16 +68,39 @@ export async function createFromInk(
   // Si el conjunto es demasiado disperso, no es una compuerta
   if (totalWidth > bodyWidth * 5) return null;
 
-  const element: AndGateElement = {
+  const gateId = generateId();
+  const outputId = generateId();
+
+  const gate: AndGateElement = {
     type: 'andgate',
-    id: generateId(),
+    id: gateId,
     transform: IDENTITY_MATRIX,
     bounds: totalBounds,
     sourceStrokes: strokes,
   };
 
+  // Crear un LogicInput automático en la salida (lado derecho)
+  const outputWidth = 30;
+  const outputHeight = 30;
+  const outputPadding = 5;
+  
+  const outputBounds: BoundingBox = {
+    left: totalBounds.right + outputPadding,
+    top: totalBounds.top + (totalBounds.bottom - totalBounds.top) / 2 - outputHeight / 2,
+    right: totalBounds.right + outputPadding + outputWidth,
+    bottom: totalBounds.top + (totalBounds.bottom - totalBounds.top) / 2 + outputHeight / 2,
+  };
+
+  const outputInput: LogicInputElement = {
+    type: 'logicinput',
+    id: outputId,
+    transform: IDENTITY_MATRIX,
+    value: 0,
+    bounds: outputBounds,
+  };
+
   return {
-    elements: [element],
+    elements: [gate, outputInput],
     consumedStrokes: strokes,
     confidence: 0.9,
   };

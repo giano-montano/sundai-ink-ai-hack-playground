@@ -1,11 +1,10 @@
 import type { Element } from '../../types';
 import type { AndGateElement } from '../andgate/types';
 import type { LogicInputElement } from '../logicinput/types';
-import { boundingBoxContainsPoint, applyMatrix } from '../../types/primitives';
+import { applyMatrix } from '../../types/primitives';
 
 /**
  * Resuelve la lógica de todos los elementos de circuito en la nota.
- * Devuelve una nueva lista de elementos con los estados actualizados.
  */
 export function solveLogic(elements: Element[]): Element[] {
   const gates = elements.filter(el => el.type === 'andgate') as AndGateElement[];
@@ -13,35 +12,23 @@ export function solveLogic(elements: Element[]): Element[] {
 
   if (gates.length === 0) return elements;
 
-  const updatedElements = elements.map(el => {
-    if (el.type !== 'andgate') return el;
-
-    const gate = el as AndGateElement;
-    const { left, top, right, bottom } = gate.bounds;
+  // Fase 1: Recopilar qué inputs tocan los pines de entrada de qué compuertas
+  const gateUpdates = gates.map(gate => {
+    const { left, top, bottom } = gate.bounds;
     const height = bottom - top;
 
-    // Calcular posiciones REALES de los pines usando el transform
-    const p1_local = { x: left, y: top + height * 0.3 };
-    const p2_local = { x: left, y: top + height * 0.7 };
-    
-    const p1_world = applyMatrix(gate.transform, p1_local);
-    const p2_world = applyMatrix(gate.transform, p2_local);
+    const p1_world = applyMatrix(gate.transform, { x: left, y: top + height * 0.3 });
+    const p2_world = applyMatrix(gate.transform, { x: left, y: top + height * 0.7 });
 
     let val1: 0 | 1 | null = null;
     let val2: 0 | 1 | null = null;
 
-    // Buscar inputs que toquen los pines (considerando también sus transforms)
     for (const input of inputs) {
-      // Nota: Simplificamos asumiendo que el input.bounds ya está en world space 
-      // o que su transform es identidad para el dibujo inicial.
-      // Si el input se mueve, aplicamos su transform a sus bounds.
-      const inputCenter_local = {
+      const inputCenter_world = applyMatrix(input.transform, {
         x: (input.bounds.left + input.bounds.right) / 2,
         y: (input.bounds.top + input.bounds.bottom) / 2
-      };
-      const inputCenter_world = applyMatrix(input.transform, inputCenter_local);
+      });
 
-      // Distancia simple para la conexión (margen de 20px)
       const dist1 = Math.hypot(inputCenter_world.x - p1_world.x, inputCenter_world.y - p1_world.y);
       const dist2 = Math.hypot(inputCenter_world.x - p2_world.x, inputCenter_world.y - p2_world.y);
 
@@ -50,14 +37,46 @@ export function solveLogic(elements: Element[]): Element[] {
     }
 
     const output = (val1 === 1 && val2 === 1) ? 1 : 0;
-
-    return {
-      ...gate,
-      input1: val1,
-      input2: val2,
-      output: output as 0 | 1
-    };
+    return { id: gate.id, val1, val2, output };
   });
 
-  return updatedElements;
+  // Fase 2: Aplicar cambios y propagar hacia los LogicInputs que actúan como "pantalla/salida"
+  // Un input es "seguidor de salida" si está pegado al pin derecho de una compuerta.
+  return elements.map(el => {
+    if (el.type === 'andgate') {
+      const update = gateUpdates.find(u => u.id === el.id);
+      return update ? { ...el, input1: update.val1, input2: update.val2, output: update.output } : el;
+    }
+
+    if (el.type === 'logicinput') {
+      const input = el as LogicInputElement;
+      
+      // Centro actual del input en el mundo
+      const inputCenter_world = applyMatrix(input.transform, {
+        x: (input.bounds.left + input.bounds.right) / 2,
+        y: (input.bounds.top + input.bounds.bottom) / 2
+      });
+
+      // Ver si alguna compuerta tiene su pin de salida aquí
+      for (const gate of gates) {
+        const gateUpdate = gateUpdates.find(u => u.id === gate.id);
+        if (!gateUpdate) continue;
+
+        const outPin_world = applyMatrix(gate.transform, {
+          x: gate.bounds.right,
+          y: (gate.bounds.top + gate.bounds.bottom) / 2
+        });
+
+        const distOut = Math.hypot(inputCenter_world.x - outPin_world.x, inputCenter_world.y - outPin_world.y);
+
+        if (distOut < 25) {
+          // Si el input está pegado a la salida, hereda su valor.
+          // Esto lo convierte en un transmisor para la siguiente etapa.
+          return { ...input, value: gateUpdate.output as 0 | 1 };
+        }
+      }
+    }
+
+    return el;
+  });
 }
