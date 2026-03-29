@@ -4,6 +4,7 @@ export type {
   CreationContext,
   CreationResult,
   InteractionResult,
+  InteractionContext,
   RenderOptions,
   HandleDescriptor,
   HandleAppearance,

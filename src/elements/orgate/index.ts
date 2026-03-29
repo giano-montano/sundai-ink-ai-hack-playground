@@ -4,13 +4,13 @@ import { registerPlugin } from '../registry/ElementRegistry';
 import { canCreate, createFromInk } from './creator';
 import { acceptInk, isInterestedIn } from './interaction';
 import { render, getBounds } from './renderer';
-import { AndGateIcon } from './icon';
-import { createDefaultAndGateElement } from './types';
-import type { AndGateElement } from './types';
+import { OrGateIcon } from './icon';
+import { createDefaultOrGateElement } from './types';
+import type { OrGateElement } from './types';
 
-const andGatePlugin: ElementPlugin<AndGateElement> = {
-  elementType: 'andgate',
-  name: 'AND Gate',
+const orGatePlugin: ElementPlugin<OrGateElement> = {
+  elementType: 'orgate',
+  name: 'OR Gate',
   canCreate,
   createFromInk,
   isInterestedIn,
@@ -19,14 +19,14 @@ const andGatePlugin: ElementPlugin<AndGateElement> = {
   getBounds,
 };
 
-registerPlugin(andGatePlugin);
+registerPlugin(orGatePlugin);
 
 registerPaletteEntry({
-  id: 'andgate',
-  label: 'AND Gate',
-  Icon: AndGateIcon,
+  id: 'orgate',
+  label: 'OR Gate',
+  Icon: OrGateIcon,
   category: 'content',
-  onSelect: async (bounds) => createDefaultAndGateElement(bounds),
+  onSelect: async (bounds) => createDefaultOrGateElement(bounds),
 });
 
-export { andGatePlugin };
+export { orGatePlugin };

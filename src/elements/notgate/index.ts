@@ -4,13 +4,13 @@ import { registerPlugin } from '../registry/ElementRegistry';
 import { canCreate, createFromInk } from './creator';
 import { acceptInk, isInterestedIn } from './interaction';
 import { render, getBounds } from './renderer';
-import { AndGateIcon } from './icon';
-import { createDefaultAndGateElement } from './types';
-import type { AndGateElement } from './types';
+import { NotGateIcon } from './icon';
+import { createDefaultNotGateElement } from './types';
+import type { NotGateElement } from './types';
 
-const andGatePlugin: ElementPlugin<AndGateElement> = {
-  elementType: 'andgate',
-  name: 'AND Gate',
+const notGatePlugin: ElementPlugin<NotGateElement> = {
+  elementType: 'notgate',
+  name: 'NOT Gate',
   canCreate,
   createFromInk,
   isInterestedIn,
@@ -19,14 +19,14 @@ const andGatePlugin: ElementPlugin<AndGateElement> = {
   getBounds,
 };
 
-registerPlugin(andGatePlugin);
+registerPlugin(notGatePlugin);
 
 registerPaletteEntry({
-  id: 'andgate',
-  label: 'AND Gate',
-  Icon: AndGateIcon,
+  id: 'notgate',
+  label: 'NOT Gate',
+  Icon: NotGateIcon,
   category: 'content',
-  onSelect: async (bounds) => createDefaultAndGateElement(bounds),
+  onSelect: async (bounds) => createDefaultNotGateElement(bounds),
 });
 
-export { andGatePlugin };
+export { notGatePlugin };

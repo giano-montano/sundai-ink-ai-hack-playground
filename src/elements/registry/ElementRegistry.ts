@@ -409,7 +409,7 @@ export async function tryInteraction(
     }
 
     try {
-      const result = await plugin.acceptInk(element, strokes, recognitionResult);
+      const result = await plugin.acceptInk(element, strokes, recognitionResult, { elements });
       if (result.consumed) {
         return { elementId: element.id, result };
       }

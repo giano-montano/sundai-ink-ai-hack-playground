@@ -20,6 +20,8 @@ import type { QueensElement } from '../elements/queens/types';
 import type { JigsawElement } from '../elements/jigsaw/types';
 import type { ColorConnectElement } from '../elements/colorconnect/types';
 import type { AndGateElement } from '../elements/andgate/types';
+import type { OrGateElement } from '../elements/orgate/types';
+import type { NotGateElement } from '../elements/notgate/types';
 
 // Union type for all elements
 export type Element =
@@ -39,7 +41,9 @@ export type Element =
   | QueensElement
   | JigsawElement
   | ColorConnectElement
-  | AndGateElement;
+  | AndGateElement
+  | OrGateElement
+  | NotGateElement;
 
 // Check if element supports background color
 export function supportsBackgroundColor(element: Element): boolean {

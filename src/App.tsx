@@ -54,6 +54,20 @@ function removeConsumedStrokeElements(elements: Element[], consumedStrokes: Set<
   });
 }
 
+function applyInteractionUpdates(
+  elements: Element[],
+  elementId: string,
+  updatedElement: Element,
+  additionalUpdatedElements?: Element[],
+): Element[] {
+  const updates = new Map<string, Element>([[elementId, updatedElement]]);
+  for (const element of additionalUpdatedElements ?? []) {
+    updates.set(element.id, element);
+  }
+
+  return elements.map(element => updates.get(element.id) ?? element);
+}
+
 const STORAGE_KEY = 'ink-playground-note';
 const VIEWPORT_STORAGE_KEY = 'ink-playground-viewport';
 
@@ -421,8 +435,11 @@ function App() {
       // Update the element in place
       setCurrentNote({
         ...currentNoteRef.current,
-        elements: currentNoteRef.current.elements.map((el) =>
-          el.id === elementId ? result.element : el
+        elements: applyInteractionUpdates(
+          currentNoteRef.current.elements,
+          elementId,
+          result.element,
+          result.additionalUpdatedElements,
         ),
       });
       // Auto-select the element that consumed the strokes
@@ -696,8 +713,11 @@ function App() {
       }
       setCurrentNote({
         ...currentNoteRef.current,
-        elements: currentNoteRef.current.elements.map((el) =>
-          el.id === elementId ? result.element : el
+        elements: applyInteractionUpdates(
+          currentNoteRef.current.elements,
+          elementId,
+          result.element,
+          result.additionalUpdatedElements,
         ),
       });
       // Auto-select the element that consumed the stroke
