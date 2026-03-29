@@ -35,6 +35,7 @@ import { detectRectangleX, lastRectXRejection, type RectangleXResult } from './g
 import { createPaletteIntent } from './palette';
 import type { PaletteIntent, PaletteAction } from './palette';
 import { Toaster } from './toast/Toast';
+import { solveLogic } from './elements/utils/logicSimulator';
 import './App.css';
 
 
@@ -81,16 +82,28 @@ function loadSavedViewport(): Viewport | undefined {
   return undefined;
 }
 
+
 function App() {
   const {
-    current: currentNote,
-    set: setCurrentNote,
+    current: currentNoteBase,
+    set: setCurrentNoteBase,
     undo: undoBase,
     redo: redoBase,
     canUndo,
     canRedo,
     reset: resetNote,
   } = useUndoRedo<NoteElements>(loadSavedNote());
+
+  // Wrap currentNote to always solve logic
+  const currentNote = useMemo(() => {
+    const solvedElements = solveLogic(currentNoteBase.elements);
+    // Only return a new object if elements actually changed (to avoid unnecessary re-renders)
+    // Note: solveLogic currently always returns a new array if there are gates.
+    // For a hackathon, this is fine, but in production we'd check for deep equality.
+    return { ...currentNoteBase, elements: solvedElements };
+  }, [currentNoteBase]);
+
+  const setCurrentNote = setCurrentNoteBase;
 
   const [stylePreset, setStylePreset] = useState<StylePresetKey>(DEFAULT_STYLE_PRESET);
   const [refinementMode, setRefinementMode] = useState<RefinementMode>('twoImage');
@@ -102,7 +115,9 @@ function App() {
 
   // Ref to always access the latest note state from async callbacks (avoids stale closures)
   const currentNoteRef = useRef(currentNote);
-  currentNoteRef.current = currentNote;
+  useEffect(() => {
+    currentNoteRef.current = currentNote;
+  }, [currentNote]);
 
   // Track pending strokes for element creation (strokes not yet assigned to elements)
   const pendingStrokesRef = useRef<Stroke[]>([]);
