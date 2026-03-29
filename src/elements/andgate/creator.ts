@@ -97,6 +97,7 @@ export async function createFromInk(
     transform: IDENTITY_MATRIX,
     value: 0,
     bounds: outputBounds,
+    outputOf: gateId, // This makes it 'sticky' in the simulator
   };
 
   return {

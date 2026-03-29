@@ -6,4 +6,5 @@ export interface LogicInputElement extends TransformableElement {
   value: 0 | 1;
   bounds: BoundingBox;
   sourceStrokes?: Stroke[];
+  outputOf?: string; // ID of the gate that owns this output
 }

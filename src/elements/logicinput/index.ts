@@ -20,6 +20,34 @@ const logicInputPlugin: ElementPlugin<LogicInputElement> = {
 
   render,
   getBounds,
+
+   // NEW: Move handle for the gate
+  getHandles(element) {
+    const { left, top, right, bottom } = element.bounds;
+    return [{
+      id: 'move',
+      position: { x: (left + right) / 2, y: (top + bottom) / 2 },
+      hitRadius: 30,
+      appearance: { shape: 'square', size: 12, fillColor: 'rgba(0,0,0,0.1)', strokeColor: '#000' }
+    }];
+  },
+  // FIXED: Removed 'context' and 5th argument. Matches the interface exactly.
+  onHandleDrag(element, handleId, phase, point) {
+    if (handleId === 'move') {
+      const width = element.bounds.right - element.bounds.left;
+      const height = element.bounds.bottom - element.bounds.top;
+      return {
+        ...element,
+        bounds: {
+          left: point.x - width / 2,
+          top: point.y - height / 2,
+          right: point.x + width / 2,
+          bottom: point.y + height / 2
+        }
+      };
+    }
+    return element;
+  }
 };
 
 registerPlugin(logicInputPlugin);
