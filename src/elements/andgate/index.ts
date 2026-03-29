@@ -2,53 +2,38 @@ import { generateId, IDENTITY_MATRIX } from '../../types/primitives';
 import { registerPaletteEntry } from '../../palette/PaletteRegistry';
 import { registerPlugin } from '../registry/ElementRegistry';
 import type { ElementPlugin } from '../registry/ElementPlugin';
-import { getStrokesBoundingBox } from '../registry';
 import { render, getBounds } from './renderer';
+import { canCreate, createFromInk } from './creator';
 import type { AndGateElement } from './types';
 import { AndGateIcon } from './icon';
 
+/**
+ * Elemento Compuerta AND (Lógica).
+ * Se detecta mediante un patrón estricto: 1 cuerpo (D), 2 entradas (izquierda), 1 salida (derecha).
+ */
 const andGatePlugin: ElementPlugin<AndGateElement> = {
   elementType: 'andgate',
   name: 'AND Gate',
 
-  // Detección: 2 a 4 trazos en un área coherente
-  canCreate: (strokes) => strokes.length >= 2 && strokes.length <= 4,
-  
-  createFromInk: async (strokes) => {
-    const bounds = getStrokesBoundingBox(strokes);
-    if (!bounds) return null;
-
-    // Solo crear si el área no es absurdamente grande o pequeña
-    const width = bounds.right - bounds.left;
-    const height = bounds.bottom - bounds.top;
-    if (width < 20 || height < 20) return null;
-
-    return {
-      elements: [{
-        type: 'andgate',
-        id: generateId(),
-        transform: IDENTITY_MATRIX,
-        bounds,
-        sourceStrokes: strokes,
-      }],
-      consumedStrokes: strokes,
-      confidence: 0.6,
-    };
-  },
+  // Delegar detección y creación
+  canCreate,
+  createFromInk,
 
   render,
   getBounds,
 };
 
+// Registrar el plugin en el sistema central
 registerPlugin(andGatePlugin);
 
-// Entrada en la paleta (Menú Rectángulo + X)
+// Registrar entrada en el menú de paleta (Gesto Rectángulo + X)
 registerPaletteEntry({
   id: 'andgate',
   label: 'AND Gate',
   Icon: AndGateIcon,
-  category: 'logic',
-  onSelect: async (bounds) => {
+  category: 'game', // Usar categoría existente para asegurar visibilidad
+  onSelect: async (bounds, consumeStrokes) => {
+    consumeStrokes(); // OBLIGATORIO para que el sistema añada el elemento
     return {
       type: 'andgate',
       id: generateId(),

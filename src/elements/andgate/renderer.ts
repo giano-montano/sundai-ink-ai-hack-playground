@@ -8,33 +8,52 @@ export function render(
   options?: RenderOptions
 ): void {
   const { left, top, right, bottom } = element.bounds;
-  const width = right - left;
-  const height = bottom - top;
+  const totalWidth = right - left;
+  const totalHeight = bottom - top;
+
+  // Distribución de espacio: 20% pins izquierda, 60% cuerpo, 20% pin derecha
+  const pinSpace = totalWidth * 0.2;
+  const bodyWidth = totalWidth * 0.6;
+  const bodyLeft = left + pinSpace;
+  
+  // El radio del arco es la mitad de la altura
+  const arcRadius = totalHeight / 2;
+  // El ancho de la parte recta es el ancho del cuerpo menos el radio del arco
+  const bodyRectWidth = Math.max(0, bodyWidth - arcRadius);
+
+  const isSelected = options?.strokeOptions?.isSelected;
 
   ctx.save();
   ctx.beginPath();
-  ctx.strokeStyle = options?.isSelected ? '#0078d4' : '#000000';
+  ctx.strokeStyle = isSelected ? '#0078d4' : '#000000';
   ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
 
-  // Cuerpo de la compuerta AND (Forma de D)
-  const arcRadius = height / 2;
-  const rectWidth = width - arcRadius;
-
-  ctx.moveTo(left, top);
-  ctx.lineTo(left + rectWidth, top);
-  ctx.arc(left + rectWidth, top + arcRadius, arcRadius, -Math.PI / 2, Math.PI / 2);
-  ctx.lineTo(left, bottom);
-  ctx.lineTo(left, top);
+  // 1. Dibujar Cuerpo (D)
+  ctx.moveTo(bodyLeft, top);
+  ctx.lineTo(bodyLeft + bodyRectWidth, top);
+  // Arco de 180 grados para la parte derecha de la D
+  ctx.arc(bodyLeft + bodyRectWidth, top + arcRadius, arcRadius, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(bodyLeft, bottom);
+  ctx.lineTo(bodyLeft, top);
   
-  // Entradas (izquierda)
-  ctx.moveTo(left - 15, top + height * 0.3);
-  ctx.lineTo(left, top + height * 0.3);
-  ctx.moveTo(left - 15, top + height * 0.7);
-  ctx.lineTo(left, top + height * 0.7);
+  // 2. Dibujar Entradas (2 palitos)
+  const inputY1 = top + totalHeight * 0.3;
+  const inputY2 = top + totalHeight * 0.7;
+  
+  ctx.moveTo(left, inputY1);
+  ctx.lineTo(bodyLeft, inputY1);
+  
+  ctx.moveTo(left, inputY2);
+  ctx.lineTo(bodyLeft, inputY2);
 
-  // Salida (derecha) - El arco termina en 'right'
-  ctx.moveTo(right, top + height * 0.5);
-  ctx.lineTo(right + 15, top + height * 0.5);
+  // 3. Dibujar Salida (1 palito)
+  const outputY = top + totalHeight * 0.5;
+  const bodyRight = bodyLeft + bodyRectWidth + arcRadius;
+  
+  ctx.moveTo(bodyRight, outputY);
+  ctx.lineTo(right, outputY);
 
   ctx.stroke();
   ctx.restore();
