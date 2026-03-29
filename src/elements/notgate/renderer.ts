@@ -4,18 +4,19 @@ import {
   getLogicGateRenderBounds,
   renderLogicGateWiresAndValues,
 } from '../logicgate/shared';
-import type { AndGateElement } from './types';
+import type { NotGateElement } from './types';
 
 export function render(
   ctx: CanvasRenderingContext2D,
-  element: AndGateElement,
+  element: NotGateElement,
   options?: RenderOptions,
 ): void {
   const body = element.bodyBounds;
-  const bodyHeight = body.bottom - body.top;
-  const radius = bodyHeight / 2;
-  const centerY = body.top + radius;
-  const arcCenterX = body.right - radius;
+  const bubbleRadius = element.bubbleRadius ?? Math.max(6, (body.bottom - body.top) * 0.1);
+  const bubbleCenter = element.bubbleCenter ?? {
+    x: body.right + bubbleRadius + 6,
+    y: (body.top + body.bottom) / 2,
+  };
 
   renderLogicGateWiresAndValues(ctx, element, options);
   ctx.save();
@@ -27,14 +28,18 @@ export function render(
 
   ctx.beginPath();
   ctx.moveTo(body.left, body.top);
-  ctx.lineTo(arcCenterX, body.top);
-  ctx.arc(arcCenterX, centerY, radius, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(body.right, (body.top + body.bottom) / 2);
   ctx.lineTo(body.left, body.bottom);
-  ctx.lineTo(body.left, body.top);
+  ctx.closePath();
   ctx.stroke();
+
+  ctx.beginPath();
+  ctx.arc(bubbleCenter.x, bubbleCenter.y, bubbleRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
   ctx.restore();
 }
 
-export function getBounds(element: AndGateElement): BoundingBox | null {
+export function getBounds(element: NotGateElement): BoundingBox | null {
   return getLogicGateRenderBounds(element);
 }

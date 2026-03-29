@@ -2,8 +2,8 @@ import type { Stroke } from '../../types';
 import type { HandwritingRecognitionResult } from '../../recognition/RecognitionService';
 import type { CreationContext, CreationResult } from '../registry/ElementPlugin';
 import { getStrokesBoundingBox } from '../registry/ElementRegistry';
-import { analyzeAndGateBody } from './detection';
-import { createAndGateElementFromBodyBounds } from './types';
+import { analyzeOrGateBody } from './detection';
+import { createOrGateElementFromBodyBounds } from './types';
 
 export function canCreate(strokes: Stroke[]): boolean {
   if (strokes.length === 0 || strokes.length > 8) return false;
@@ -17,16 +17,17 @@ export async function createFromInk(
   _context: CreationContext,
   _recognitionResult?: HandwritingRecognitionResult,
 ): Promise<CreationResult | null> {
-  const detection = analyzeAndGateBody(strokes);
+  const detection = analyzeOrGateBody(strokes);
   if (!detection) return null;
 
   return {
-    elements: [createAndGateElementFromBodyBounds(detection.bounds)],
+    elements: [createOrGateElementFromBodyBounds(detection.bounds)],
     consumedStrokes: strokes,
     confidence:
-      0.68 +
-      detection.straightness * 0.16 -
-      detection.concavity * 0.08 +
+      0.7 +
+      detection.concavity * 0.18 +
+      detection.symmetry * 0.05 +
+      detection.tipCentered * 0.06 +
       Math.min(0.08, detection.leftWireCount * 0.02) +
       (detection.rightWireCount === 1 ? 0.05 : 0),
   };

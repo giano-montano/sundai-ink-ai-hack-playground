@@ -7,7 +7,6 @@ import type { NoteElements, Stroke, Element } from './types';
 import { createEmptyNote, supportsBackgroundColor, getElementStrokeColor, getElementBackgroundColor, setElementStrokeColor, setElementBackgroundColor } from './types';
 import { generateId, IDENTITY_MATRIX } from './types/primitives';
 import { createStrokeElement } from './elements/stroke/types';
-import { normalizeAndGateElement } from './elements/andgate/types';
 import type { ShapeElement } from './elements/shape/types';
 import { createSketchableImageElement } from './elements/sketchableimage/types';
 import { useUndoRedo, useUndoRedoKeyboard } from './state/useUndoRedo';
@@ -77,19 +76,7 @@ function loadSavedNote(): NoteElements {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (parsed && Array.isArray(parsed.elements)) {
-        return {
-          elements: parsed.elements.flatMap((element: unknown) => {
-            if (!element || typeof element !== 'object') return [];
-            if ((element as { type?: unknown }).type !== 'andgate') {
-              return [element as Element];
-            }
-
-            const normalized = normalizeAndGateElement(element);
-            return normalized ? [normalized] : [];
-          }),
-        };
-      }
+      if (parsed && Array.isArray(parsed.elements)) return parsed as NoteElements;
     }
   } catch { /* ignore */ }
   return { elements: [] };

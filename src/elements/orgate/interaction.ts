@@ -2,10 +2,10 @@ import type { BoundingBox, Stroke } from '../../types';
 import type { HandwritingRecognitionResult } from '../../recognition/RecognitionService';
 import type { InteractionContext, InteractionResult } from '../registry/ElementPlugin';
 import { acceptLogicGateInk, isInterestedInLogicGate } from '../logicgate/shared';
-import type { AndGateElement } from './types';
+import type { OrGateElement } from './types';
 
 export function isInterestedIn(
-  element: AndGateElement,
+  element: OrGateElement,
   strokes: Stroke[],
   strokeBounds: BoundingBox,
 ): boolean {
@@ -13,7 +13,7 @@ export function isInterestedIn(
 }
 
 export async function acceptInk(
-  element: AndGateElement,
+  element: OrGateElement,
   strokes: Stroke[],
   recognitionResult?: HandwritingRecognitionResult,
   context?: InteractionContext,

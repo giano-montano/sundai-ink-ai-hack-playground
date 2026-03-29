@@ -1,8 +1,18 @@
 import type { BoundingBox, Offset, Stroke } from '../../types';
 import { boundingBoxHeight, boundingBoxWidth } from '../../types/primitives';
 import { getStrokesBoundingBox } from '../registry/ElementRegistry';
+import { splitGateSketchStrokes } from '../logicgate/sketch';
 
 const MIN_SIZE = 36;
+const LEFT_PROFILE_LIMIT_X = 0.3;
+
+export interface AndGateDetectionResult {
+  bounds: BoundingBox;
+  straightness: number;
+  concavity: number;
+  leftWireCount: number;
+  rightWireCount: number;
+}
 
 function getStrokePoints(strokes: Stroke[]): Offset[] {
   return strokes.flatMap((stroke) =>
@@ -33,8 +43,41 @@ function normalizePoints(points: Offset[], bounds: BoundingBox): Offset[] {
   }));
 }
 
-export function detectAndGateBodyBounds(strokes: Stroke[]): BoundingBox | null {
-  const bounds = getStrokesBoundingBox(strokes);
+function averageX(points: Offset[]): number | null {
+  if (points.length === 0) return null;
+  return points.reduce((sum, point) => sum + point.x, 0) / points.length;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function analyzeLeftProfile(points: Offset[]): { straightness: number; concavity: number } {
+  const leftPoints = points.filter((point) => point.x <= LEFT_PROFILE_LIMIT_X);
+  const top = averageX(leftPoints.filter((point) => point.y >= 0.12 && point.y <= 0.35));
+  const middle = averageX(leftPoints.filter((point) => point.y >= 0.4 && point.y <= 0.6));
+  const bottom = averageX(leftPoints.filter((point) => point.y >= 0.65 && point.y <= 0.88));
+
+  if (top === null || middle === null || bottom === null) {
+    return { straightness: 0, concavity: 0 };
+  }
+
+  const spread = Math.max(
+    Math.abs(top - middle),
+    Math.abs(middle - bottom),
+    Math.abs(top - bottom),
+  );
+  const concavityDepth = middle - (top + bottom) / 2;
+
+  return {
+    straightness: clamp01(1 - spread / 0.12),
+    concavity: clamp01(concavityDepth / 0.12),
+  };
+}
+
+export function analyzeAndGateBody(strokes: Stroke[]): AndGateDetectionResult | null {
+  const sketch = splitGateSketchStrokes(strokes);
+  const bounds = sketch.bodyBounds ?? getStrokesBoundingBox(strokes);
   if (!bounds) return null;
 
   const width = boundingBoxWidth(bounds);
@@ -44,7 +87,7 @@ export function detectAndGateBodyBounds(strokes: Stroke[]): BoundingBox | null {
   const aspect = width / height;
   if (aspect < 0.6 || aspect > 1.8) return null;
 
-  const points = normalizePoints(getStrokePoints(strokes), bounds);
+  const points = normalizePoints(getStrokePoints(sketch.bodyStrokes.length > 0 ? sketch.bodyStrokes : strokes), bounds);
   if (points.length < 12) return null;
 
   const leftSide = points.filter((point) => point.x <= 0.22);
@@ -61,6 +104,21 @@ export function detectAndGateBodyBounds(strokes: Stroke[]): BoundingBox | null {
   const hasTop = coverage(topSide, 'x', 3) >= 0.66;
   const hasBottom = coverage(bottomSide, 'x', 3) >= 0.66;
   const hasArc = coverage(arcSide, 'y', 4) >= 0.75;
+  const leftProfile = analyzeLeftProfile(points);
 
-  return hasLeft && hasTop && hasBottom && hasArc ? bounds : null;
+  if (!hasLeft || !hasTop || !hasBottom || !hasArc) return null;
+  if (leftProfile.straightness < 0.55) return null;
+  if (leftProfile.concavity > 0.35) return null;
+
+  return {
+    bounds,
+    straightness: leftProfile.straightness,
+    concavity: leftProfile.concavity,
+    leftWireCount: sketch.leftWireCount,
+    rightWireCount: sketch.rightWireCount,
+  };
+}
+
+export function detectAndGateBodyBounds(strokes: Stroke[]): BoundingBox | null {
+  return analyzeAndGateBody(strokes)?.bounds ?? null;
 }

@@ -16,23 +16,24 @@ import {
 } from '../logicgate/shared';
 
 export type { LogicBit };
-export type AndGateInput = LogicGateInput;
-export interface AndGateElement extends LogicGateElementBase<'andgate'> {}
+export type NotGateInput = LogicGateInput;
+export interface NotGateElement extends LogicGateElementBase<'notgate'> {}
 
-export function createAndGateElementFromBodyBounds(
+export function createNotGateElementFromBodyBounds(
   bodyCanvasBounds: BoundingBox,
   id?: string,
-): AndGateElement {
-  return createLogicGateElementFromBodyBounds('andgate', bodyCanvasBounds, 2, id) as AndGateElement;
+): NotGateElement {
+  return createLogicGateElementFromBodyBounds('notgate', bodyCanvasBounds, 1, id) as NotGateElement;
 }
 
-export function createDefaultAndGateElement(bounds: BoundingBox): AndGateElement {
-  return createAndGateElementFromBodyBounds(bounds);
+export function createDefaultNotGateElement(bounds: BoundingBox): NotGateElement {
+  return createNotGateElementFromBodyBounds(bounds);
 }
 
-export function isAndGateElement(element: Element): element is AndGateElement {
-  return element.type === 'andgate';
+export function isNotGateElement(element: Element): element is NotGateElement {
+  return element.type === 'notgate';
 }
+
 export {
   getBodyCanvasBounds,
   getInputCanvasAttachPoint,
@@ -43,6 +44,6 @@ export {
   toLocalPoint,
 };
 
-export function getAndGateCanvasBounds(element: AndGateElement): BoundingBox {
+export function getNotGateCanvasBounds(element: NotGateElement): BoundingBox {
   return getLogicGateCanvasBounds(element);
 }
