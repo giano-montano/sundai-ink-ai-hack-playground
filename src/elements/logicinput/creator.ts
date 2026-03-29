@@ -6,46 +6,54 @@ import type { CreationContext, CreationResult } from '../registry/ElementPlugin'
 import type { HandwritingRecognitionResult } from '../../recognition/RecognitionService';
 
 export function canCreate(strokes: Stroke[]): boolean {
-  // Necesitamos al menos 2 trazos (una caja y un número)
-  return strokes.length >= 2 && strokes.length <= 6;
+  // Ahora aceptamos desde 1 solo trazo (el número solo) hasta 4 (un dibujo más complejo)
+  return strokes.length >= 1 && strokes.length <= 4;
 }
 
 export async function createFromInk(
   strokes: Stroke[],
   _context: CreationContext,
-  recognitionResult?: HandwritingRecognitionResult
+  _recognitionResult?: HandwritingRecognitionResult
 ): Promise<CreationResult | null> {
-  if (!recognitionResult || !recognitionResult.rawText) return null;
-
-  const text = recognitionResult.rawText.trim().toLowerCase();
-  
-  // Normalización de OCR común para 0 y 1
-  let value: 0 | 1 | null = null;
-  if (text === '0' || text === 'o' || text === 'zero') value = 0;
-  if (text === '1' || text === 'i' || text === 'l' || text === 'one') value = 1;
-
-  if (value === null) return null;
-
   const bounds = getStrokesBoundingBox(strokes);
   if (!bounds) return null;
 
-  // Verificación geométrica básica
   const width = bounds.right - bounds.left;
   const height = bounds.bottom - bounds.top;
-  if (width < 10 || height < 10) return null;
+  const aspectRatio = width / height;
+
+  // Verificación geométrica simple (SIN OCR):
+  // 1. ¿Parece un "1"? (Muy alto y estrecho)
+  const isOneLike = aspectRatio < 0.4 && height > 15;
+  
+  // 2. ¿Parece un "0"? (Proporciones de círculo/cuadrado)
+  const isZeroLike = aspectRatio >= 0.5 && aspectRatio <= 2.0 && width > 15 && height > 15;
+
+  if (!isOneLike && !isZeroLike) return null;
+
+  const value = isOneLike ? 1 : 0;
+
+  // Creamos un área un poco más grande para el input final para que sea fácil de clicar
+  const padding = 10;
+  const finalBounds = {
+    left: bounds.left - padding,
+    top: bounds.top - padding,
+    right: bounds.right + padding,
+    bottom: bounds.bottom + padding
+  };
 
   const element: LogicInputElement = {
     type: 'logicinput',
     id: generateId(),
     transform: IDENTITY_MATRIX,
     value,
-    bounds,
+    bounds: finalBounds,
     sourceStrokes: strokes,
   };
 
   return {
     elements: [element],
     consumedStrokes: strokes,
-    confidence: 0.95,
+    confidence: 0.8, // Confianza media porque es heurística pura
   };
 }

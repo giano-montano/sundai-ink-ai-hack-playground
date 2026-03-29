@@ -16,9 +16,7 @@ export function render(
   const bodyWidth = totalWidth * 0.6;
   const bodyLeft = left + pinSpace;
   
-  // El radio del arco es la mitad de la altura
   const arcRadius = totalHeight / 2;
-  // El ancho de la parte recta es el ancho del cuerpo menos el radio del arco
   const bodyRectWidth = Math.max(0, bodyWidth - arcRadius);
 
   const isSelected = options?.strokeOptions?.isSelected;
@@ -30,15 +28,14 @@ export function render(
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // 1. Dibujar Cuerpo (D)
+  // 1. Cuerpo (D)
   ctx.moveTo(bodyLeft, top);
   ctx.lineTo(bodyLeft + bodyRectWidth, top);
-  // Arco de 180 grados para la parte derecha de la D
   ctx.arc(bodyLeft + bodyRectWidth, top + arcRadius, arcRadius, -Math.PI / 2, Math.PI / 2);
   ctx.lineTo(bodyLeft, bottom);
   ctx.lineTo(bodyLeft, top);
   
-  // 2. Dibujar Entradas (2 palitos)
+  // 2. Entradas (2 palitos)
   const inputY1 = top + totalHeight * 0.3;
   const inputY2 = top + totalHeight * 0.7;
   
@@ -48,7 +45,7 @@ export function render(
   ctx.moveTo(left, inputY2);
   ctx.lineTo(bodyLeft, inputY2);
 
-  // 3. Dibujar Salida (1 palito)
+  // 3. Salida (1 palito)
   const outputY = top + totalHeight * 0.5;
   const bodyRight = bodyLeft + bodyRectWidth + arcRadius;
   
